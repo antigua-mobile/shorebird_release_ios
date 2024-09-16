@@ -1,0 +1,47 @@
+name: 'Shorebird release IOS'
+description: 'Builds an iOS release IPA using Shorebird'
+inputs:
+  app_flavor:
+    description: The app flavor to build
+    required: false
+  export_options_plist:
+    description: The path to the export options plist file
+    required: true
+  flutter_args:
+    description: Additional arguments to pass to the flutter command
+    required: false
+  shorebird_token:
+    description: The token to use to authenticate with Shorebird
+    required: true
+
+outputs:
+  ipa-output-folder:
+    description: "IPA output folder"
+    value: 'build/ios/ipa'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare Shorebird args
+      id: prepare_shorebird_args
+      run: |
+        # Prepare the args for the shorebird release command, so that
+        # connditional values are not included and there would be no
+        # empty values and unnecessary delimiter spaces in the final args.
+        ARGS=""
+        ${{ inputs.app_flavor != '' }} && ARGS+="--flavor ${{ inputs.app_flavor }} "
+        ARGS+="--flutter-version ${{ env.FLUTTER_VERSION }} "
+        ARGS+="--export-options-plist ${{ inputs.export_options_plist }} "
+        ${{ inputs.flutter_args != '' }} && ARGS+="-- ${{inputs.flutter_args }}"
+
+        echo "args=${ARGS%?}" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Build iOS IPA
+      id: shorebird_release
+      uses: shorebirdtech/shorebird-release@v0
+      with:
+        platform: ios
+        args: ${{ steps.prepare_shorebird_args.outputs.args }}
+      env:
+        SHOREBIRD_TOKEN: ${{ inputs.shorebird_token }}
